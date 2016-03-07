@@ -11,15 +11,16 @@ class Lgtm
     const USAGE = "Usage: %s";
 
     const BUNDLE_ID = 'com.xn--nyqr7s4vc72p.lgtm-workflow';
-    const CACHE_IMAGE_FILENAME = '%s.%s';
+    const CACHE_IMAGE_FILENAME = '%d.%s';
 
     const URL = 'http://www.lgtm.in/g';
-    public static $_HTTP_OPTS = [
+    static $HTTP_OPTS = [
         'http' => [
             'method' => "GET",
             'header' => "Accept:application/json, text/javascript"
         ],
     ];
+    static $ALLOWED_EXTENSIONS = ['png', 'jpeg', 'jpg', 'gif', 'agif'];
     protected static $_CLI_OPT;
     protected static $_CLI_ARGV;
 
@@ -30,7 +31,7 @@ class Lgtm
     {
         self::_initOptions($argv);
         $this->_wf = new Workflows(self::BUNDLE_ID);
-        $this->_context = stream_context_create(self::$_HTTP_OPTS);
+        $this->_context = stream_context_create(self::$HTTP_OPTS);
     }
 
     protected static function _initOptions(Array $argv = null)
@@ -75,7 +76,10 @@ class Lgtm
     protected static function generateImageFilename($id, $image_url)
     {
         $ext = self::extractExtension($image_url);
-        return sprintf(self::CACHE_IMAGE_FILENAME, $id, $ext);
+        $filename = in_array($ext, self::$ALLOWED_EXTENSIONS, $strict = true)
+            ? sprintf(self::CACHE_IMAGE_FILENAME, $id, $ext)
+            : '';
+        return $filename;
     }
 
     protected static function extractExtension($url)
@@ -107,11 +111,16 @@ class Lgtm
     protected function pushResult($data)
     {
         $json = is_string($data) ? json_decode($data) : $data;
-        $subtitle = join(' ', [
-            "Likes:{$json->likes}",
-            "Dislikes:{$json->dislikes}",
-            "Impressions:{$json->impressions}",
-            "Credits:{$json->credits}",
+        $emoticon_1F44E = json_decode('"\uD83D\uDC4D"');
+        $emoticon_1F44D = json_decode('"\uD83D\uDC4E"');
+        $emoticon_1F602 = json_decode('"\uD83D\uDE02"');
+        $emoticon_1F44F = json_decode('"\uD83D\uDC4F"');
+
+        $subtitle = join("  ", [
+            "$emoticon_1F44E:{$json->likes}",
+            "$emoticon_1F44D:{$json->dislikes}",
+            "$emoticon_1F602:{$json->impressions}",
+            "$emoticon_1F44F:{$json->credits}",
         ]);
         $image_path = $this->generateImagePath($json->id, $json->actualImageUrl);
 
