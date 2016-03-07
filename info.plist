@@ -103,8 +103,6 @@
 				<false/>
 				<key>sticky</key>
 				<false/>
-				<key>text</key>
-				<string>{qeury}</string>
 				<key>title</key>
 				<string>LGTM</string>
 			</dict>
