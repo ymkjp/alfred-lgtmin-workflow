@@ -69,7 +69,6 @@ class Lgtm
 
     protected function storeData($data, $filename)
     {
-        $this->_wf->delete($filename);
         return $this->_wf->write($data, $filename);
     }
 
