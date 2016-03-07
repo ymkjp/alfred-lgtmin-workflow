@@ -1,6 +1,6 @@
 <?php
 
-require_once('workflows.php');
+require_once './workflows.php';
 
 /**
  * Class Lgtm
@@ -8,16 +8,12 @@ require_once('workflows.php');
  */
 class Lgtm
 {
-    const USAGE = "Usage: %s
-		--async-store-cache\tCache data
-		--skip-using-cache\tIgnore cached data";
+    const USAGE = "Usage: %s";
 
     const BUNDLE_ID = 'com.xn--nyqr7s4vc72p.lgtm-workflow';
-    const CACHE_INFO_FILENAME = 'e2ec0803935f4a8ae665475b0f59e56225d3ab92.json';
-    const CACHE_IMAGE_FILENAME = '0e76292794888d4f1fa75fb3aff4ca27c58f56a6';
+    const CACHE_IMAGE_FILENAME = '%s.%s';
 
     const URL = 'http://www.lgtm.in/g';
-    const RUNTIME = 'php';
     public static $_HTTP_OPTS = [
         'http' => [
             'method' => "GET",
@@ -39,7 +35,7 @@ class Lgtm
 
     protected static function _initOptions(Array $argv = null)
     {
-        self::$_CLI_OPT = $opts = getopt('h', ['help', 'skip-using-cache', 'async-store-cache']);
+        self::$_CLI_OPT = $opts = getopt('h', ['help']);
         self::$_CLI_ARGV = $argv;
         if (isset($opts['h']) || isset($opts['help'])) {
             $message = sprintf(self::USAGE, $argv[0]);
@@ -59,27 +55,27 @@ class Lgtm
 
     protected function _run()
     {
-        if (self::hasCliOption('async-store-cache')) {
-            $next_data = $this->fetchData($assoc = true);
-            $is_cached = $this->refreshCache($next_data, self::CACHE_INFO_FILENAME);
-            $image_url = $next_data['actualImageUrl'];
-            $raw_image = $this->_wf->request($image_url);
-            $ext = self::extractExtension($image_url);
-            if ($raw_image !== false && !empty($ext)) {
-                $this->refreshCache($raw_image, self::CACHE_IMAGE_FILENAME . ".$ext");
-            }
-            return $is_cached ? 0 : 1;
-        } else {
-            echo $this->showResult();
-            self::execAsync(['--async-store-cache']);
+        $raw_data = $this->fetchData();
+        $image_url = $raw_data->actualImageUrl;
+        $raw_image = $this->_wf->request($image_url);
+        if ($raw_image !== false) {
+            $this->storeData($raw_image, $this->generateImageFilename($raw_data->id, $image_url));
         }
+        $this->pushResult($raw_data);
+        echo $this->_wf->toxml();
         return 0;
     }
 
-    protected function refreshCache($data, $filename)
+    protected function storeData($data, $filename)
     {
         $this->_wf->delete($filename);
         return $this->_wf->write($data, $filename);
+    }
+
+    protected static function generateImageFilename($id, $image_url)
+    {
+        $ext = self::extractExtension($image_url);
+        return sprintf(self::CACHE_IMAGE_FILENAME, $id, $ext);
     }
 
     protected static function extractExtension($url)
@@ -88,27 +84,9 @@ class Lgtm
         return array_pop(explode('.', $path));
     }
 
-    protected static function execAsync($options)
-    {
-        $command = sprintf('%s %s %s 2>&1 /dev/null &', self::RUNTIME, self::$_CLI_ARGV[0], join(' ', $options));
-        return exec($command);
-    }
-
     protected static function hasCliOption($key = '')
     {
         return array_key_exists($key, self::$_CLI_OPT);
-    }
-
-    protected function showResult()
-    {
-        $cache_data = self::hasCliOption('skip-using-cache') ? null : $this->_wf->read(self::CACHE_INFO_FILENAME);
-        if ($cache_data) {
-            $this->pushResult($cache_data);
-        } else {
-            $raw_data = $this->fetchData();
-            $this->pushResult($raw_data);
-        }
-        return $this->_wf->toxml();
     }
 
     protected function fetchData($assoc = false, $url = self::URL, $context = null)
@@ -118,10 +96,9 @@ class Lgtm
         return json_decode($raw_data, $assoc);
     }
 
-    protected function generateImagePath($image_url)
+    protected function generateImagePath($id, $image_url)
     {
-        $ext = self::extractExtension($image_url);
-        $filename = self::CACHE_IMAGE_FILENAME . ".$ext";
+        $filename = $this->generateImageFilename($id, $image_url);
         $file_available = $this->_wf->read($filename);
         $image_path = $file_available === false ? null : $this->_wf->data() . '/' . $filename;
         return $image_path;
@@ -136,7 +113,7 @@ class Lgtm
             "Impressions:{$json->impressions}",
             "Credits:{$json->credits}",
         ]);
-        $image_path = $this->generateImagePath($json->actualImageUrl);
+        $image_path = $this->generateImagePath($json->id, $json->actualImageUrl);
 
         # Markdown's image syntax
         $this->_wf->result(

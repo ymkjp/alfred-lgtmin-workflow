@@ -75,7 +75,7 @@
 				<key>script</key>
 				<string>php lgtm.php</string>
 				<key>subtext</key>
-				<string>Loading...</string>
+				<string>Press return to fetch image links</string>
 				<key>title</key>
 				<string>Copy LGTM</string>
 				<key>type</key>
